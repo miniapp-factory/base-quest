@@ -120,3 +120,197 @@
 
 # 2025-12-02 17:52:15.779262
 +apply changes
+
+# 2025-12-02 18:15:39.243786
++Change the miniapp name to "Base Flip & Win" and use this idea: "Flip & Win” – Onchain Coin Flip Game
++
++Create a miniapp where users can connect their wallet and play a provably fair coin flip game on Base mainnet. The user selects “Heads” or “Tails,” chooses a wager amount in ETH or USDC, and confirms the transaction. The smart contract randomly determines the outcome and instantly pays out double the wager to the winner, minus a small fee. All flips and payouts are recorded onchain for transparency.
++
++Key Features:
++
++Simple UI: “Heads” or “Tails” selection, wager input, and flip button.
++Onchain randomness (e.g., Chainlink VRF or similar).
++Instant payout to winner’s wallet.
++Game history and stats display.
++Works with any EVM wallet on Base." And here's how to implement the smart contract 
++// SPDX-License-Identifier: MIT
++pragma solidity ^0.8.20;
++
++import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
++import "@openzeppelin/contracts/access/Ownable.sol";
++
++contract CoinFlip is VRFConsumerBaseV2, Ownable {
++    enum Choice { Heads, Tails }
++    struct Bet {
++        address player;
++        uint256 amount;
++        Choice choice;
++        bool resolved;
++    }
++
++    uint256 public feePercent = 2; // 2% fee
++    uint256 public totalFees;
++    uint64 public s_subscriptionId;
++    bytes32 public keyHash;
++    uint32 public callbackGasLimit = 100000;
++
++    mapping(uint256 => Bet) public bets; // requestId => Bet
++    mapping(address => uint256) public pendingBets;
++
++    event BetPlaced(address indexed player, uint256 amount, Choice choice, uint256 requestId);
++    event BetResolved(address indexed player, bool win, uint256 payout, uint256 requestId);
++
++    constructor(
++        address vrfCoordinator,
++        bytes32 _keyHash,
++        uint64 subscriptionId
++    ) VRFConsumerBaseV2(vrfCoordinator) {
++        keyHash = _keyHash;
++        s_subscriptionId = subscriptionId;
++    }
++
++    function placeBet(Choice _choice) external payable {
++        require(msg.value > 0, "No wager");
++        require(pendingBets[msg.sender] == 0, "Already pending bet");
++
++        uint256 requestId = requestRandomWords(
++            keyHash,
++            s_subscriptionId,
++            3, // confirmations
++            callbackGasLimit,
++            1 // numWords
++        );
++
++        bets[requestId] = Bet(msg.sender, msg.value, _choice, false);
++        pendingBets[msg.sender] = requestId;
++
++        emit BetPlaced(msg.sender, msg.value, _choice, requestId);
++    }
++
++    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
++        Bet storage bet = bets[requestId];
++        require(!bet.resolved, "Already resolved");
++
++        bool win = (uint8(bet.choice) == (randomWords[0] % 2));
++        uint256 payout = 0;
++
++        if (win) {
++            payout = (bet.amount * 2 * (100 - feePercent)) / 100;
++            payable(bet.player).transfer(payout);
++            totalFees += (bet.amount * 2 * feePercent) / 100;
++        } else {
++            totalFees += bet.amount;
++        }
++
++        bet.resolved = true;
++        pendingBets[bet.player] = 0;
++
++        emit BetResolved(bet.player, win, payout, requestId);
++    }
++
++    function withdrawFees(address to) external onlyOwner {
++        uint256 amount = totalFees;
++        totalFees = 0;
++        payable(to).transfer(amount);
++    }
++
++    // Fallback to receive ETH
++    receive() external payable {}
++}
+
+# 2025-12-02 18:15:39.244292
++Change the miniapp name to "Base Flip & Win" and use this idea: "Flip & Win” – Onchain Coin Flip Game
++
++Create a miniapp where users can connect their wallet and play a provably fair coin flip game on Base mainnet. The user selects “Heads” or “Tails,” chooses a wager amount in ETH or USDC, and confirms the transaction. The smart contract randomly determines the outcome and instantly pays out double the wager to the winner, minus a small fee. All flips and payouts are recorded onchain for transparency.
++
++Key Features:
++
++Simple UI: “Heads” or “Tails” selection, wager input, and flip button.
++Onchain randomness (e.g., Chainlink VRF or similar).
++Instant payout to winner’s wallet.
++Game history and stats display.
++Works with any EVM wallet on Base." And here's how to implement the smart contract 
++// SPDX-License-Identifier: MIT
++pragma solidity ^0.8.20;
++
++import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
++import "@openzeppelin/contracts/access/Ownable.sol";
++
++contract CoinFlip is VRFConsumerBaseV2, Ownable {
++    enum Choice { Heads, Tails }
++    struct Bet {
++        address player;
++        uint256 amount;
++        Choice choice;
++        bool resolved;
++    }
++
++    uint256 public feePercent = 2; // 2% fee
++    uint256 public totalFees;
++    uint64 public s_subscriptionId;
++    bytes32 public keyHash;
++    uint32 public callbackGasLimit = 100000;
++
++    mapping(uint256 => Bet) public bets; // requestId => Bet
++    mapping(address => uint256) public pendingBets;
++
++    event BetPlaced(address indexed player, uint256 amount, Choice choice, uint256 requestId);
++    event BetResolved(address indexed player, bool win, uint256 payout, uint256 requestId);
++
++    constructor(
++        address vrfCoordinator,
++        bytes32 _keyHash,
++        uint64 subscriptionId
++    ) VRFConsumerBaseV2(vrfCoordinator) {
++        keyHash = _keyHash;
++        s_subscriptionId = subscriptionId;
++    }
++
++    function placeBet(Choice _choice) external payable {
++        require(msg.value > 0, "No wager");
++        require(pendingBets[msg.sender] == 0, "Already pending bet");
++
++        uint256 requestId = requestRandomWords(
++            keyHash,
++            s_subscriptionId,
++            3, // confirmations
++            callbackGasLimit,
++            1 // numWords
++        );
++
++        bets[requestId] = Bet(msg.sender, msg.value, _choice, false);
++        pendingBets[msg.sender] = requestId;
++
++        emit BetPlaced(msg.sender, msg.value, _choice, requestId);
++    }
++
++    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
++        Bet storage bet = bets[requestId];
++        require(!bet.resolved, "Already resolved");
++
++        bool win = (uint8(bet.choice) == (randomWords[0] % 2));
++        uint256 payout = 0;
++
++        if (win) {
++            payout = (bet.amount * 2 * (100 - feePercent)) / 100;
++            payable(bet.player).transfer(payout);
++            totalFees += (bet.amount * 2 * feePercent) / 100;
++        } else {
++            totalFees += bet.amount;
++        }
++
++        bet.resolved = true;
++        pendingBets[bet.player] = 0;
++
++        emit BetResolved(bet.player, win, payout, requestId);
++    }
++
++    function withdrawFees(address to) external onlyOwner {
++        uint256 amount = totalFees;
++        totalFees = 0;
++        payable(to).transfer(amount);
++    }
++
++    // Fallback to receive ETH
++    receive() external payable {}
++}
